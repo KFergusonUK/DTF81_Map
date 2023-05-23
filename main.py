@@ -3,13 +3,13 @@ import geopandas as gpd
 from shapely.geometry import LineString
 import matplotlib.pyplot as plt
 
-# Define the path to the DTF8.1 format CSV file
+# Path to the Geoplace DTF8.1 format CSV file
 dtf_file_path = 'LG.csv'
 
 # Read the DTF8.1 format CSV file into a DataFrame
 df = pd.read_csv(dtf_file_path, delimiter=',', header=None, skiprows=1)
 
-# Select the columns for start and end coordinates
+# Select the columns for start and end coords
 start_easting = df.iloc[:, 14].astype(float)
 start_northing = df.iloc[:, 15].astype(float)
 end_easting = df.iloc[:, 16].astype(float)
