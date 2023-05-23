@@ -32,7 +32,7 @@ gdf.plot(ax=ax, linestyle='-', color='blue')
 ax.set_aspect('equal')
 ax.set_xlabel('Easting')
 ax.set_ylabel('Northing')
-ax.set_title('DTF8.1 Map')
+ax.set_title('Street Gazetteer Data Map')
 
 # Display the plot
 plt.show()
