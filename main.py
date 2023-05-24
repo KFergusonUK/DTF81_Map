@@ -28,11 +28,12 @@ fig, ax = plt.subplots(figsize=(10, 10))
 # Plot the GeoDataFrame as lines
 gdf.plot(ax=ax, linestyle='-', color='blue')
 
-# Customize the plot appearance
+# Set plot appearance
 ax.set_aspect('equal')
 ax.set_xlabel('Easting')
 ax.set_ylabel('Northing')
 ax.set_title('Street Gazetteer Data Map')
 
 # Display the plot
+plt.axis('off')
 plt.show()
