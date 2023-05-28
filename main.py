@@ -1,39 +1,49 @@
 import pandas as pd
 import geopandas as gpd
-from shapely.geometry import LineString
-import matplotlib.pyplot as plt
+from shapely.geometry import LineString, Point
+import preprocess
+import simple
 
-# Path to the Geoplace DTF8.1 format CSV file
-dtf_file_path = 'LG.csv'
+# File paths
+input_file_path = 'LG2.csv'
+processed_file_path = 'LG_Processed.csv'
 
-# Read the DTF8.1 format CSV file into a DataFrame
-df = pd.read_csv(dtf_file_path, delimiter=',', header=None, skiprows=1)
+# Ask user if initial pre-processing is required
+setup_file = input("Would you like to create a mapping file from your input data? This is required, for a detailed map, when a new data source is added (initial setup will take some time). Y/N?: \n")
 
-# Select the columns for start and end coords
-start_easting = df.iloc[:, 14].astype(float)
-start_northing = df.iloc[:, 15].astype(float)
-end_easting = df.iloc[:, 16].astype(float)
-end_northing = df.iloc[:, 17].astype(float)
+if setup_file == "Y":
+    # Preprocess the CSV file (optional)
+    df_streets, df_xref, df_esu_coords = preprocess.preprocess_csv(input_file_path)
 
-# Create LineString geometries from start and end coordinates
-lines = [LineString([(start_easting[i], start_northing[i]), (end_easting[i], end_northing[i])])
-         for i in range(len(df))]
+elif setup_file == "N":
+    simple_detailed = input("Would you like a read in the data file for a detailed map, type N to create a simple map from type 11 data only. Y/N? ")
+    if simple_detailed == "Y":
+      # try to read the processed data from the file
+      try:
+          df_processed = pd.read_csv(processed_file_path)
 
-# Create a GeoDataFrame from the lines
-gdf = gpd.GeoDataFrame(df, geometry=lines)
+          # Extract the necessary information for plotting on the map
+          streets = []
+          for _, row in df_processed.iterrows():
+              # Process the row and append it to streets
+              # ...
+              continue
+              #ADD CODE HERE. ******
 
-# Create a plot of the data
-fig, ax = plt.subplots(figsize=(10, 10))
+          gdf_streets = gpd.GeoDataFrame(streets, columns=df_processed.columns, geometry='geometry', crs='EPSG:27700')
 
-# Plot the GeoDataFrame as lines
-gdf.plot(ax=ax, linestyle='-', color='blue')
+         # Plot the data on a map
+          gdf_streets.plot()
 
-# Set plot appearance
-ax.set_aspect('equal')
-ax.set_xlabel('Easting')
-ax.set_ylabel('Northing')
-ax.set_title('Street Gazetteer Data Map')
+          # Display the map
+          import matplotlib.pyplot as plt
+          plt.axis("off")
+          plt.show()
 
-# Display the plot
-plt.axis('off')
-plt.show()
+      except FileNotFoundError:
+          print("Processed file not found. Please run the initial setup to create the mapping file.")
+    else:
+      #Create a simple map if any response other than Y:
+      simple.sMap()
+else:
+    print("You did not enter Y or N.")
