@@ -3,9 +3,10 @@ import geopandas as gpd
 from shapely.geometry import LineString, Point
 import preprocess
 import simple
+import matplot
+import plotlyplot
 import re
 import matplotlib.pyplot as plt
-
 
 from shapely import wkt
 
@@ -21,51 +22,18 @@ if setup_file == "Y":
     df_streets, df_xref, df_esu_coords = preprocess.preprocess_csv(input_file_path)
 
 elif setup_file == "N":
-    simple_detailed = input("Would you like a read in the data file for a detailed map, type N to create a simple map from type 11 data only. Y/N? ")
-    if simple_detailed == "Y":
-      # try to read the processed data from the file
-      try:
-
-          # Helper function to convert coordinates to LineString
-          def create_linestring(coords):
-              if len(coords) >= 2:
-                  return LineString(coords)
-              else:
-                  return None
-                    
-          # Read the CSV file into a DataFrame
-          df = pd.read_csv('LG_Processed.csv', header=None, names=['record_type', 'geometry'])
-          
-          # Check if the 'geometry' column exists
-          if 'geometry' in df.columns:
-              # Extract coordinates and convert to LineString
-              df['geometry'] = df['geometry'].apply(
-                  lambda x: create_linestring([
-                      tuple(map(float, coord.split())) for coord in re.findall(r'\d+\.\d+ \d+\.\d+', x)
-                  ])
-              )
-          
-              # Create a GeoDataFrame with the correct geometry type
-              gdf = gpd.GeoDataFrame(df, geometry='geometry')
-
-              print(df)
-            
-              # Plot the geometries on a map
-              gdf.plot()
-          
-              # Display the map
-              plt.show()
-          else:
-              print("The 'geometry' column does not exist in the DataFrame.")
-          
-      except FileNotFoundError:
-          print("Processed file not found. Please run the initial setup to create the mapping file.")
-
-        
-
-
+    simple_detailed = input("Would you like a read in the data file for a detailed map? \nType S to create a simple map from type 11 data only.\nType M to create a MatplotLib map.\nType P to create a Plotly map.\nS/M/P? ")
+    if simple_detailed == "M":
+      #Create a MatPlotLib map:
+      matplot.plotLib()
+    elif simple_detailed == "S":
+      #Create a simple map:
+      simple.sMap()
+    elif simple_detailed == "P":
+      #Create Plotly map.
+      plotlyplot.plotly_plot()
     else:
-      #Create a simple map if any response other than Y:
+      #Else just create a simple map.
       simple.sMap()
 else:
     print("You did not enter Y or N.")
