@@ -35,5 +35,6 @@ elif setup_file == "N":
     else:
       #Else just create a simple map.
       simple.sMap()
+      #Maybe also consider PyGMT?: #https://www.pygmt.org/latest/gallery/lines/roads.html#sphx-glr-gallery-lines-roads-py
 else:
     print("You did not enter Y or N.")

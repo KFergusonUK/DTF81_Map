@@ -1,38 +1,50 @@
 import pandas as pd
 import geopandas as gpd
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString
 import matplotlib.pyplot as plt
+
 input_file_path = 'LG.csv'
 
 def sMap():
-      
-  # Read the DTF8.1 format CSV file into a DataFrame
-  df = pd.read_csv(input_file_path, delimiter=',', header=None, skiprows=1)
+    # Specify the column numbers to be read from the CSV file
+    columns_to_read = [0, 14, 15, 16, 17]
 
-  # Select the columns for start and end coords
-  start_easting = df.iloc[:, 14].astype(float)
-  start_northing = df.iloc[:, 15].astype(float)
-  end_easting = df.iloc[:, 16].astype(float)
-  end_northing = df.iloc[:, 17].astype(float)
+    # Specify the column names for better readability
+    column_names = ['Type', 'Start Easting', 'Start Northing', 'End Easting', 'End Northing']
 
-  # Create LineString geometries from start and end coordinates
-  lines = [LineString([(start_easting[i], start_northing[i]), (end_easting[i],        end_northing[i])])
-         for i in range(len(df))]
+    # Specify the data types for the columns with mixed types
+    column_dtypes = {'Type': str, 'Start Easting': float, 'Start Northing': float,
+                     'End Easting': float, 'End Northing': float}
 
-  # Create a GeoDataFrame from the lines
-  gdf = gpd.GeoDataFrame(df, geometry=lines)
+    # Read the CSV file and select only the desired columns
+    df = pd.read_csv(input_file_path, delimiter=',', header=None, skiprows=1, usecols=columns_to_read, names=column_names, dtype=column_dtypes)
 
-  # Create a plot of the data
-  fig, ax = plt.subplots(figsize=(10, 10))
+    # Filter rows where the 'Type' column is either "11", "12", or "13"
+    df = df[df['Type'].isin(['11'])]
 
-  # Plot the GeoDataFrame as lines
-  gdf.plot(ax=ax, linestyle='-', color='blue')
+    # Create LineString geometries from start and end coordinates
+    lines = [LineString([(row['Start Easting'], row['Start Northing']), (row['End Easting'], row['End Northing'])])
+             for _, row in df.iterrows()]
 
-  # Customize the plot appearance
-  ax.set_aspect('equal')
-  ax.set_xlabel('Easting')
-  ax.set_ylabel('Northing')
-  ax.set_title('DTF8.1 Map')
+    # Create a GeoDataFrame from the lines
+    gdf = gpd.GeoDataFrame(df, geometry=lines)
 
-  # Display the plot
-  plt.show()
+    # Create a plot of the data
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    # Plot the GeoDataFrame as lines
+    if not gdf.empty:  # Check if the GeoDataFrame is not empty
+        gdf.plot(ax=ax, linestyle='-', color='blue')
+
+        # Customize the plot appearance
+        ax.set_aspect('equal')
+        ax.set_xlabel('Easting')
+        ax.set_ylabel('Northing')
+        ax.set_title('Street Gazetteer (Type 11) Map')
+
+        # Display the plot
+        plt.axis("off")
+        plt.show()
+    else:
+        print("No data to plot.")
+
