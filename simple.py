@@ -16,10 +16,26 @@ def sMap():
     column_dtypes = {'Type': str, 'Start Easting': float, 'Start Northing': float,
                      'End Easting': float, 'End Northing': float}
 
-    # Read the CSV file and select only the desired columns
-    df = pd.read_csv(input_file_path, delimiter=',', header=None, skiprows=1, usecols=columns_to_read, names=column_names, dtype=column_dtypes)
+    # Create an empty DataFrame to store the data
+    df = pd.DataFrame(columns=column_names)
 
-    # Filter rows where the 'Type' column is either "11", "12", or "13"
+    # Read the CSV file row by row
+    with open(input_file_path, 'r') as file:
+        next(file)  # Skip the header row
+        for line in file:
+            line = line.strip().split(',')
+            try:
+                # Select the desired columns from the line
+                row = [line[i] for i in columns_to_read]
+                
+                # Check if the row has sufficient length
+                if len(row) == len(columns_to_read):
+                    # Add the row to the DataFrame
+                    df.loc[len(df)] = row
+            except IndexError:
+                continue  # Skip rows with out-of-bounds columns
+
+    # Filter rows where the 'Type' column is "11" only.
     df = df[df['Type'].isin(['11'])]
 
     # Create LineString geometries from start and end coordinates
@@ -47,4 +63,3 @@ def sMap():
         plt.show()
     else:
         print("No data to plot.")
-
