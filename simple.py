@@ -58,7 +58,7 @@ def sMap():
         ax.set_ylabel('Northing')
         ax.set_title('Street Gazetteer (Type 11) Map')
 
-        # Display the plot
+        #Display the plot
         plt.axis("off")
         plt.show()
     else:
