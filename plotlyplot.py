@@ -36,3 +36,4 @@ def plotly_plot():
   # Print the output path for manual opening
   print(f"Plot saved as '{output_path}'")
   
+plotly_plot()

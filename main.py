@@ -8,15 +8,11 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 import numpy as np
 import preprocess
+import csv
 
 # File paths
 input_file_path = '1355LG.csv'
-
-
-import csv
-import numpy as np
-import geopandas as gpd
-from shapely.geometry import LineString
+uk_map_image_path = 'Miniscale_UK_resize.tif'
 
 def create_simple_map():
     # Specify the column numbers to be read from the CSV file
@@ -66,8 +62,38 @@ def create_simple_map_command(canvas, toolbar, ax):
 
     # Check if there is data to plot
     if not gdf.empty:
+        # Read the UK map image
+        uk_map_image = plt.imread(uk_map_image_path)
+
+        # Set the extent of the UK map image based on the desired coordinates
+        extent = [0, 700000, 0, 1300000]
+
+        # Plot the UK map as the background
+        ax.imshow(uk_map_image, extent=extent, aspect='auto')
+
         # Plot the GeoDataFrame as lines
         gdf.plot(ax=ax, linestyle='-', color='blue')
+
+        # Get the bounds of the lines data
+        lines_bounds = gdf.total_bounds
+
+        # Calculate the x and y center coordinates of the lines data
+        center_x = (lines_bounds[0] + lines_bounds[2]) / 2
+        center_y = (lines_bounds[1] + lines_bounds[3]) / 2
+
+        # Calculate the width and height of the lines data
+        width = lines_bounds[2] - lines_bounds[0]
+        height = lines_bounds[3] - lines_bounds[1]
+
+        # Set the new extent based on the lines data bounds
+        new_extent = [center_x - width / 2, center_x + width / 2, center_y - height / 2, center_y + height / 2]
+
+        # Set the aspect ratio to 'equal' to retain the original size
+        ax.set_aspect('equal')
+
+        # Set the new extent for the plot
+        ax.set_xlim(new_extent[0], new_extent[1])
+        ax.set_ylim(new_extent[2], new_extent[3])
 
     else:
         # Display text when there is no data to plot
@@ -75,13 +101,14 @@ def create_simple_map_command(canvas, toolbar, ax):
                 transform=ax.transAxes, fontsize=12)
 
     # Remove axes and axis labels
-    #ax.axis('off')
+    ax.axis('off')
 
     # Display the plot on the canvas
     canvas.draw()
 
     # Update the toolbar
     toolbar.update()
+
 
 
 # Create the main window
