@@ -7,14 +7,13 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.figure import Figure
 import numpy as np
-import preprocess
 import csv
 
 # File paths
 input_file_path = '1355LG.csv'
 uk_map_image_path = 'Miniscale_UK_resize.tif'
 
-def create_simple_map():
+def preprocess_type_11(file_path):
     # Specify the column numbers to be read from the CSV file
     columns_to_read = [0, 14, 15, 16, 17]
 
@@ -25,7 +24,7 @@ def create_simple_map():
     rows = []
 
     # Read the CSV file
-    with open(input_file_path, 'r') as file:
+    with open(file_path, 'r') as file:
         reader = csv.reader(file)
         next(reader)  # Skip the header row
         for row in reader:
@@ -43,17 +42,54 @@ def create_simple_map():
     # Create a DataFrame from the list of valid rows
     df = pd.DataFrame(rows, columns=column_names)
 
+    return df
+
+
+def preprocess_type_15(file_path):
+    # Specify the column numbers to be read from the CSV file
+    columns_to_read = [0, 3, 4, 6]
+
+    # Specify the column names for better readability
+    column_names = ['Type', 'USRN', 'Street', 'Town']
+
+    # Initialize an empty list to store the valid rows
+    rows = []
+
+    # Read the CSV file
+    with open(file_path, 'r') as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip the header row
+        for row in reader:
+            if row[0] == '15':  # Filter rows where the 'Type' column is "15" only
+                rows.append([row[col_idx] for col_idx in columns_to_read])
+
+    # Create a DataFrame from the list of valid rows
+    df = pd.DataFrame(rows, columns=column_names)
+
+    return df
+
+
+def create_simple_map():
+    # Generate the Type 11 map
+    gdf_type_11 = preprocess_type_11(input_file_path)
+
     # Create LineString geometries from start and end coordinates
     lines = [LineString([(row['Start Easting'], row['Start Northing']), (row['End Easting'], row['End Northing'])])
-             for _, row in df.iterrows()]
+             for _, row in gdf_type_11.iterrows()]
 
     # Create a GeoDataFrame from the lines
-    gdf = gpd.GeoDataFrame(df, geometry=lines)
+    gdf = gpd.GeoDataFrame(gdf_type_11, geometry=lines)
 
     return gdf
 
 
 def create_simple_map_command(canvas, toolbar, ax):
+    clear_output_frame()
+    
+    # Create a new figure and axis object
+    fig = Figure(figsize=(8, 6))
+    ax = fig.add_subplot(111)
+
     # Generate the simple map
     gdf = create_simple_map()
 
@@ -103,12 +139,84 @@ def create_simple_map_command(canvas, toolbar, ax):
     # Remove axes and axis labels
     ax.axis('off')
 
+    # Create a canvas for displaying the plot
+    canvas = FigureCanvasTkAgg(fig, master=output_frame)
+    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    # Create the toolbar
+    toolbar = NavigationToolbar2Tk(canvas, output_frame)
+    toolbar.update()
+    toolbar.pack()
+
     # Display the plot on the canvas
     canvas.draw()
 
-    # Update the toolbar
-    toolbar.update()
 
+def clear_output_frame():
+    for widget in output_frame.winfo_children():
+        widget.destroy()
+
+
+def display_street_search():
+    clear_output_frame()
+
+    # Create the street search frame
+    street_search_frame = ttk.Frame(output_frame)
+    street_search_frame.pack(fill=tk.BOTH, expand=True)
+
+    # Create the search entry
+    search_entry = ttk.Entry(street_search_frame)
+    search_entry.pack(pady=10)
+
+    def perform_street_search():
+      search_term = search_entry.get()
+      df_type_15 = preprocess_type_15(input_file_path)
+      search_results = df_type_15[df_type_15['Street'].str.contains(search_term, case=False)]
+  
+      # Clear the existing search results frame
+      for widget in search_results_frame.winfo_children():
+          widget.destroy()
+  
+      if not search_results.empty:
+          # Create a scrollable frame for displaying search results
+          scrollable_frame = ttk.Frame(search_results_frame)
+          scrollable_frame.pack(fill=tk.BOTH, expand=True)
+  
+          # Create a canvas inside the scrollable frame
+          canvas = tk.Canvas(scrollable_frame)
+          canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+  
+          # Add a scrollbar to the canvas
+          scrollbar = ttk.Scrollbar(scrollable_frame, orient=tk.VERTICAL, command=canvas.yview)
+          scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+  
+          # Configure the canvas to use the scrollbar
+          canvas.configure(yscrollcommand=scrollbar.set)
+  
+          # Create a frame inside the canvas for the search results
+          results_frame = ttk.Frame(canvas)
+          canvas.create_window((0, 0), window=results_frame, anchor=tk.N)
+  
+          # Loop through the search results and display the full row
+          for idx, result in search_results.iterrows():
+              result_label = ttk.Label(results_frame, text=f" {result['Street']}, {result['Town']}, USRN: {result['USRN']}")
+              result_label.pack(pady=5)
+  
+          # Configure the canvas scrolling
+          canvas.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+  
+      else:
+          no_results_label = ttk.Label(search_results_frame, text="No results found")
+          no_results_label.pack()
+  
+
+    # Create the search button
+    search_button = ttk.Button(street_search_frame, text="Search", command=perform_street_search)
+    search_button.pack(pady=10)
+
+    # Create the search results frame
+    search_results_frame = ttk.Frame(output_frame)
+    search_results_frame.pack(fill=tk.BOTH, expand=True)
 
 
 # Create the main window
@@ -118,6 +226,8 @@ window.title("Street Gazetteer Map")
 # Create the right-side pane for output display
 output_frame = ttk.Frame(window)
 output_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+output_frame.pack_propagate(False)
+
 
 # Create a new figure and axis object
 fig = Figure(figsize=(8, 6))
@@ -143,7 +253,7 @@ label.pack()
 button_process_LG = ttk.Button(menu_frame, text="Process Level 3 File")
 button_process_LG.pack(pady=10)
 # Bind the button click event to the map creation function
-button_process_LG.configure(command=lambda: preprocess.preprocess_csv(input_file_path))
+button_process_LG.configure(command=lambda: preprocess_type_11(input_file_path))
 
 button_create_simple_map = ttk.Button(menu_frame, text="Display Type 11 Map")
 button_create_simple_map.pack(pady=10)
@@ -152,8 +262,8 @@ button_create_simple_map.configure(command=lambda: create_simple_map_command(can
 
 button_street_search = ttk.Button(menu_frame, text="Street Level Search")
 button_street_search.pack(pady=10)
-# Bind the button click event to the map creation function
-#button_street_search.configure(command=lambda: create_simple_map_command(canvas, toolbar, ax))
+# Bind the button click event to the street search function
+button_street_search.configure(command=display_street_search)
 
 # Initially display text instead of a plot
 ax.text(0.5, 0.5, 'Click "Display Type 11 Map" to generate a simple plot', horizontalalignment='center',
@@ -165,4 +275,5 @@ ax.axis('off')
 canvas.draw()
 
 # Start the Tkinter event loop
+window.geometry("640x480")
 window.mainloop()
