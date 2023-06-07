@@ -13,6 +13,7 @@ import csv
 input_file_path = '1355LG.csv'
 uk_map_image_path = 'Miniscale_UK_resize.tif'
 
+
 def preprocess_type_11(file_path):
     # Specify the column numbers to be read from the CSV file
     columns_to_read = [0, 14, 15, 16, 17]
@@ -197,10 +198,18 @@ def display_street_search():
           results_frame = ttk.Frame(canvas)
           canvas.create_window((0, 0), window=results_frame, anchor=tk.N)
   
+          def select_street(usrn):
+              global selected_street_usrn
+              selected_street_usrn = usrn
+              print(f"Selected street USRN: {selected_street_usrn}")
+  
           # Loop through the search results and display the full row
           for idx, result in search_results.iterrows():
               result_label = ttk.Label(results_frame, text=f" {result['Street']}, {result['Town']}, USRN: {result['USRN']}")
               result_label.pack(pady=5)
+  
+              # Bind the click event to the select_street function
+              result_label.bind('<Button-1>', lambda event, usrn=result['USRN']: select_street(usrn))
   
           # Configure the canvas scrolling
           canvas.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
@@ -208,6 +217,7 @@ def display_street_search():
       else:
           no_results_label = ttk.Label(search_results_frame, text="No results found")
           no_results_label.pack()
+  
   
 
     # Create the search button
