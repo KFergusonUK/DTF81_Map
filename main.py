@@ -8,71 +8,24 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.figure import Figure
 import numpy as np
 import csv
+from shapely.geometry import Point
+
+
+import preprocess
+import preprocess_file
+
 
 # File paths
 input_file_path = '1355LG.csv'
 uk_map_image_path = 'Miniscale_UK_resize.tif'
 
 
-def preprocess_type_11(file_path):
-    # Specify the column numbers to be read from the CSV file
-    columns_to_read = [0, 14, 15, 16, 17]
 
-    # Specify the column names for better readability
-    column_names = ['Type', 'Start Easting', 'Start Northing', 'End Easting', 'End Northing']
-
-    # Initialize an empty list to store the valid rows
-    rows = []
-
-    # Read the CSV file
-    with open(file_path, 'r') as file:
-        reader = csv.reader(file)
-        next(reader)  # Skip the header row
-        for row in reader:
-            if row[0] == '11':  # Filter rows where the 'Type' column is "11" only
-                # Check if the coordinate values can be converted to float
-                try:
-                    start_easting = float(row[14])
-                    start_northing = float(row[15])
-                    end_easting = float(row[16])
-                    end_northing = float(row[17])
-                    rows.append([row[0], start_easting, start_northing, end_easting, end_northing])
-                except ValueError:
-                    pass
-
-    # Create a DataFrame from the list of valid rows
-    df = pd.DataFrame(rows, columns=column_names)
-
-    return df
-
-
-def preprocess_type_15(file_path):
-    # Specify the column numbers to be read from the CSV file
-    columns_to_read = [0, 3, 4, 6]
-
-    # Specify the column names for better readability
-    column_names = ['Type', 'USRN', 'Street', 'Town']
-
-    # Initialize an empty list to store the valid rows
-    rows = []
-
-    # Read the CSV file
-    with open(file_path, 'r') as file:
-        reader = csv.reader(file)
-        next(reader)  # Skip the header row
-        for row in reader:
-            if row[0] == '15':  # Filter rows where the 'Type' column is "15" only
-                rows.append([row[col_idx] for col_idx in columns_to_read])
-
-    # Create a DataFrame from the list of valid rows
-    df = pd.DataFrame(rows, columns=column_names)
-
-    return df
-
+#CREATE SIMPLE MAP STARTS HERE:
 
 def create_simple_map():
     # Generate the Type 11 map
-    gdf_type_11 = preprocess_type_11(input_file_path)
+    gdf_type_11 = preprocess.preprocess_type_11(input_file_path)
 
     # Create LineString geometries from start and end coordinates
     lines = [LineString([(row['Start Easting'], row['Start Northing']), (row['End Easting'], row['End Northing'])])
@@ -81,18 +34,81 @@ def create_simple_map():
     # Create a GeoDataFrame from the lines
     gdf = gpd.GeoDataFrame(gdf_type_11, geometry=lines)
 
+    #print(gdf)
+
     return gdf
 
 
-def create_simple_map_command(canvas, toolbar, ax):
+def create_single_street_map():
+    # Increase the display options
+    pd.set_option('display.max_columns', None)  # Show all columns
+    pd.set_option('display.max_rows', None)  # Show all rows
+    pd.set_option('display.width', None)  # Disable column width wrapping
+
+    # Generate the single street map
+    gdf_ss = preprocess.preprocess_single_street(input_file_path, selected_street_usrn)
+
+    # Create LineString geometries from start, midpoint, and end coordinates
+    lines = []
+    for _, row in gdf_ss.iterrows():
+        points = [(row['Start Easting'], row['Start Northing'])]  # Start point
+        mid_easting_columns = [col for col in row.index if col.startswith('Mid Easting')]
+        mid_northing_columns = [col for col in row.index if col.startswith('Mid Northing')]
+
+        # Create a list of (midpoint, distance) tuples
+        midpoints = []
+        for mid_easting_col, mid_northing_col in zip(mid_easting_columns, mid_northing_columns):
+            mid_easting_list = row[mid_easting_col]
+            mid_northing_list = row[mid_northing_col]
+            for mid_easting, mid_northing in zip(mid_easting_list, mid_northing_list):
+                if not pd.isnull(mid_easting) and not pd.isnull(mid_northing):
+                    midpoint = Point(float(mid_easting), float(mid_northing))
+                    distance = midpoint.distance(Point(row['Start Easting'], row['Start Northing']))
+                    midpoints.append((midpoint, distance))
+
+        # Sort the midpoints based on their distances
+        sorted_midpoints = sorted(midpoints, key=lambda x: x[1])
+
+        # Add the sorted midpoints as points in the LineString
+        for midpoint, _ in sorted_midpoints:
+            points.append((midpoint.x, midpoint.y))  # Midpoint
+
+        points.append((row['End Easting'], row['End Northing']))  # End point
+        lines.append(LineString(points))
+
+    # Create a GeoDataFrame from the lines
+    gdf = gpd.GeoDataFrame(geometry=lines)
+    print(lines)
+    print("\n")
+    print(gdf)
+
+    return gdf
+
+
+
+
+
+
+
+
+
+def create_simple_map_command(canvas, toolbar, ax, click_source):
     clear_output_frame()
+
+    # Increase the display options
+    pd.set_option('display.max_columns', None)  # Show all columns
+    pd.set_option('display.max_rows', None)  # Show all rows
+    pd.set_option('display.width', None)  # Disable column width wrapping
     
     # Create a new figure and axis object
     fig = Figure(figsize=(8, 6))
     ax = fig.add_subplot(111)
 
-    # Generate the simple map
-    gdf = create_simple_map()
+    # Generate the map dependant on source.
+    if click_source == "simple":
+      gdf = create_simple_map()
+    elif click_source == "single":
+      gdf = create_single_street_map()
 
     # Clear the existing plot
     ax.clear()
@@ -153,10 +169,16 @@ def create_simple_map_command(canvas, toolbar, ax):
     canvas.draw()
 
 
+
+#CLEAR GUI MAIN WINDOW STARTS HERE:
+
 def clear_output_frame():
     for widget in output_frame.winfo_children():
         widget.destroy()
 
+
+
+#SINGLE STREET SEARCH STARTS HERE:
 
 def display_street_search():
     clear_output_frame()
@@ -171,7 +193,7 @@ def display_street_search():
 
     def perform_street_search():
       search_term = search_entry.get()
-      df_type_15 = preprocess_type_15(input_file_path)
+      df_type_15 = preprocess.preprocess_type_15(input_file_path)
       search_results = df_type_15[df_type_15['Street'].str.contains(search_term, case=False)]
   
       # Clear the existing search results frame
@@ -198,18 +220,20 @@ def display_street_search():
           results_frame = ttk.Frame(canvas)
           canvas.create_window((0, 0), window=results_frame, anchor=tk.N)
   
-          def select_street(usrn):
+          def select_street(usrn, click_source):
               global selected_street_usrn
               selected_street_usrn = usrn
-              print(f"Selected street USRN: {selected_street_usrn}")
-  
+              print(f"Selected street USRN: {selected_street_usrn}, Click Source: {click_source}")
+              # Call create_simple_map_command with the desired arguments
+              create_simple_map_command(canvas, toolbar, ax, click_source)
+
           # Loop through the search results and display the full row
           for idx, result in search_results.iterrows():
               result_label = ttk.Label(results_frame, text=f" {result['Street']}, {result['Town']}, USRN: {result['USRN']}")
               result_label.pack(pady=5)
   
               # Bind the click event to the select_street function
-              result_label.bind('<Button-1>', lambda event, usrn=result['USRN']: select_street(usrn))
+              result_label.bind('<Button-1>', lambda event, usrn=result['USRN']: select_street(usrn, click_source="single"))
   
           # Configure the canvas scrolling
           canvas.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
@@ -219,7 +243,6 @@ def display_street_search():
           no_results_label.pack()
   
   
-
     # Create the search button
     search_button = ttk.Button(street_search_frame, text="Search", command=perform_street_search)
     search_button.pack(pady=10)
@@ -228,6 +251,9 @@ def display_street_search():
     search_results_frame = ttk.Frame(output_frame)
     search_results_frame.pack(fill=tk.BOTH, expand=True)
 
+
+
+#MAIN GUI STARTS HERE:
 
 # Create the main window
 window = tk.Tk()
@@ -263,12 +289,12 @@ label.pack()
 button_process_LG = ttk.Button(menu_frame, text="Process Level 3 File")
 button_process_LG.pack(pady=10)
 # Bind the button click event to the map creation function
-button_process_LG.configure(command=lambda: preprocess_type_11(input_file_path))
+button_process_LG.configure(command=lambda: preprocess_file.preprocess_csv(input_file_path))
 
 button_create_simple_map = ttk.Button(menu_frame, text="Display Type 11 Map")
 button_create_simple_map.pack(pady=10)
 # Bind the button click event to the map creation function
-button_create_simple_map.configure(command=lambda: create_simple_map_command(canvas, toolbar, ax))
+button_create_simple_map.configure(command=lambda: create_simple_map_command(canvas, toolbar, ax, click_source="simple"))
 
 button_street_search = ttk.Button(menu_frame, text="Street Level Search")
 button_street_search.pack(pady=10)

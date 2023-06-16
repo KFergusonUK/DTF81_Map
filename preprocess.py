@@ -1,84 +1,141 @@
-import pandas as pd
-import geopandas as gpd
-from shapely.geometry import LineString, Point
+def preprocess_type_11(file_path):
 
-processed_file_path = 'LG_Processed.csv'
+    import csv
+    import pandas as pd
+    import geopandas as gpd
+  
+    # Specify the column numbers to be read from the CSV file
+    columns_to_read = [0, 14, 15, 16, 17]
 
-def preprocess_csv(file_path):
-    # Specify the relevant types to extract (so far)
-    relevant_types = [11, 12, 13, 14]
+    # Specify the column names for better readability
+    column_names = ['Type', 'Start Easting', 'Start Northing', 'End Easting', 'End Northing']
 
-    # Initialize empty lists to store the extracted records
-    street_records = []
-    xref_records = []
-    esu_coords = []
-    records_count = 0
+    # Initialize an empty list to store the valid rows
+    rows = []
 
     # Read the CSV file
     with open(file_path, 'r') as file:
-        for line in file:
-            record = line.strip().split(',')
-            record_type = int(record[0])
-
-            # Check if the record type is relevant
-            if record_type in relevant_types:
-                if record_type == 11:
-                    street_records.append(record)
-                    records_count += 1
-                elif record_type == 12:
-                    xref_records.append(record)
-                elif record_type == 13:
+        reader = csv.reader(file)
+        next(reader)  # Skip the header row
+        for row in reader:
+            if row[0] == '11':  # Filter rows where the 'Type' column is "11" only
+                # Check if the coordinate values can be converted to float
+                try:
+                    start_easting = float(row[14])
+                    start_northing = float(row[15])
+                    end_easting = float(row[16])
+                    end_northing = float(row[17])
+                    rows.append([row[3], start_easting, start_northing, end_easting, end_northing])
+                except ValueError:
                     pass
-                elif record_type == 14:
-                    esu_coords.append(record)
 
-    # Convert the lists of records into DataFrames
-    df_streets = pd.DataFrame(street_records)
-    df_xref = pd.DataFrame(xref_records)
-    df_esu_coords = pd.DataFrame(esu_coords)
+    # Create a DataFrame from the list of valid rows
+    df = pd.DataFrame(rows, columns=column_names)
 
-    usrnEsus = []
-    streets = []
-    current_row = 0
+    return df
 
-    for _, row in df_streets.iterrows():
-        current_row += 1
-        print("Now processing record " + str(current_row) + " of " + str(records_count))
-        matching_xref_rows = df_xref[df_xref.iloc[:, 3] == row[3]]
 
-        if not matching_xref_rows.empty:
-            for _, xrefrow in matching_xref_rows.iterrows():
-                matching_esu = df_esu_coords[df_esu_coords.iloc[:, 3] == xrefrow[5]]
-                if not matching_esu.empty:
-                    for _, esurow in matching_esu.iterrows():
-                        usrnEsus.append([xrefrow[3], esurow[6], esurow[7]])
 
-        start = Point(float(row[14]), float(row[15]))
-        end = Point(float(row[16]), float(row[17]))
 
-        matching_usrn_esus = [item for item in usrnEsus if item[0] == row[3]]
+def preprocess_type_15(file_path):
 
-        if matching_usrn_esus:
-            line_points = [start]
-            for usrn_esu in matching_usrn_esus:
-                esu_point = Point(float(usrn_esu[1]), float(usrn_esu[2]))
-                line_points.append(esu_point)
-            line_points.append(end)
-            street = LineString(line_points)
-        else:
-            street = LineString([start, end])
+    import csv
+    import pandas as pd
+    import geopandas as gpd
+    
+    # Specify the column numbers to be read from the CSV file
+    columns_to_read = [0, 3, 4, 6]
 
-        streets.append(street)
+    # Specify the column names for better readability
+    column_names = ['Type', 'USRN', 'Street', 'Town']
 
-    # Create a new column named "geometry" in df_streets_subset
-    df_streets['geometry'] = streets
-    df_streets_subset = df_streets[[3, 'geometry']]
+    # Initialize an empty list to store the valid rows
+    rows = []
 
-    # Create the GeoDataFrame from streets and df_streets_subset
-    gdf_streets = gpd.GeoDataFrame(df_streets_subset, geometry='geometry', crs='EPSG:27700')
+    # Read the CSV file
+    with open(file_path, 'r') as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip the header row
+        for row in reader:
+            if row[0] == '15':  # Filter rows where the 'Type' column is "15" only
+                rows.append([row[col_idx] for col_idx in columns_to_read])
 
-    # Save the processed data to a new CSV file
-    gdf_streets.to_csv(processed_file_path, index=False)
+    # Create a DataFrame from the list of valid rows
+    df = pd.DataFrame(rows, columns=column_names)
 
-    # Return the processed DataFrames
-    return df_streets, df_xref, df_esu_coords
+    return df
+
+
+import csv
+import pandas as pd
+import numpy as np
+
+def preprocess_single_street(file_path, selected_street_usrn):
+    # Increase the display options
+    pd.set_option('display.max_columns', None)  # Show all columns
+    pd.set_option('display.max_rows', None)  # Show all rows
+    pd.set_option('display.width', None)  # Disable column width wrapping
+
+    # Specify the column names for better readability
+    column_names = ['USRN', 'Start Easting', 'Start Northing', 'End Easting', 'End Northing', 'Mid Eastings', 'Mid Northings']
+
+    # Initialize empty lists to store the valid rows
+    rows = []
+
+    # Read the CSV file
+    with open(file_path, 'r') as file:
+        reader = csv.reader(file)
+        next(reader)  # Skip the header row
+        for row in reader:
+            if row[0] == '11' and row[3] == selected_street_usrn:  # Filter rows where the 'Type' column is "11" and USRN matches
+                # Check if the coordinate values can be converted to float
+                try:
+                    start_easting = float(row[14])
+                    start_northing = float(row[15])
+                    end_easting = float(row[16])
+                    end_northing = float(row[17])
+                    rows.append([row[3], start_easting, start_northing, end_easting, end_northing, [], []])
+                except ValueError:
+                    pass
+
+    # Read the CSV file again to extract XRef (type 12) and ESU (type 14) records
+    with open(file_path, 'r') as file:
+        reader = csv.reader(file)
+        rows_list = list(reader)  # Convert the reader object to a list
+
+    esu_coords = {}
+    for row in rows_list:
+        if row[0] == '12' and row[3] == selected_street_usrn:  # Filter XRef records where USRN matches
+            esu_id = row[5]
+            matching_esu_rows = [r for r in rows_list if r[0] == '14' and r[3] == esu_id]  # Find matching ESU records
+            esu_points = []
+            for esu_row in matching_esu_rows:
+                try:
+                    esu_easting = float(esu_row[6])
+                    esu_northing = float(esu_row[7])
+                    esu_points.append((esu_easting, esu_northing))
+                except ValueError:
+                    pass
+            esu_coords[esu_id] = esu_points
+
+    # Append the mid eastings and mid northings to the corresponding rows
+    for row in rows:
+        usrn = row[0]
+        start_easting, start_northing, end_easting, end_northing = row[1], row[2], row[3], row[4]
+        mid_eastings = []
+        mid_northings = []
+        for esu_id in esu_coords:
+            esu_points = esu_coords[esu_id]
+            mid_eastings.extend([point[0] for point in esu_points])
+            mid_northings.extend([point[1] for point in esu_points])
+        row[5] = mid_eastings
+        row[6] = mid_northings
+
+    # Create a DataFrame from the rows list using the column names
+    df = pd.DataFrame(rows, columns=column_names)
+
+    # Replace empty lists with NaN values
+    df.replace([], np.nan, inplace=True)
+
+    print(df)
+    return df
